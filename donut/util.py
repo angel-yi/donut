@@ -137,7 +137,7 @@ class DonutDataset(Dataset):
 
 class JSONParseEvaluator:
     """
-    Calculate n-TED(Normalized Tree Edit Distance) based accuracy and  F1 accuracy score
+    Calculate n-TED(Normalized Tree Edit Distance) based accuracy and F1 accuracy score
     """
 
     @staticmethod
@@ -153,13 +153,15 @@ class JSONParseEvaluator:
                         {"name" : ["juice"], "count" : ["1"]},
                     ]
                 }
-            output(dict)
-                {
-                    "menu.name": ["cake", "juice"],
-                    "menu.count": ["2", "1"],
-                }
+            output(list)
+                [
+                    ("menu.name", "cake"),
+                    ("menu.count", "2"),
+                    ("menu.name", "juice"),
+                    ("menu.count", "1"),
+                ]
         """
-        flatten_data = defaultdict(list)
+        flatten_data = list()
 
         def _flatten(value, key=""):
             if type(value) is dict:
@@ -169,10 +171,10 @@ class JSONParseEvaluator:
                 for value_item in value:
                     _flatten(value_item, key)
             else:
-                flatten_data[key].append(value)
+                flatten_data.append((key, value))
 
         _flatten(data)
-        return dict(flatten_data)
+        return flatten_data
 
     @staticmethod
     def update_cost(label1: str, label2: str):
@@ -243,14 +245,14 @@ class JSONParseEvaluator:
         total_tp, total_fn_or_fp = 0, 0
         for pred, answer in zip(preds, answers):
             pred, answer = self.flatten(self.normalize_dict(pred)), self.flatten(self.normalize_dict(answer))
-            for pred_key, pred_values in pred.items():
-                for pred_value in pred_values:
-                    if pred_key in answer and pred_value in answer[pred_key]:
-                        answer[pred_key].remove(pred_value)
-                        total_tp += 1
-                    else:
-                        total_fn_or_fp += 1
-        return total_tp / (total_tp + (total_fn_or_fp) / 2)
+            for field in pred:
+                if field in answer:
+                    total_tp += 1
+                    answer.remove(field)
+                else:
+                    total_fn_or_fp += 1
+            total_fn_or_fp += len(answer)
+        return total_tp / (total_tp + total_fn_or_fp / 2)
 
     def construct_tree_from_dict(self, data: Union[Dict, List], node_name: str = None):
         """
